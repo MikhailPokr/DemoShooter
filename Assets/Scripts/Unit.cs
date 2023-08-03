@@ -8,7 +8,7 @@ namespace DemoShooter
         [SerializeField] private int _hp;
         [Space]
         [SerializeField] private Collider _collider;
-        [SerializeField] private MoveToPoint _moveToPoint;
+        [SerializeField] private NavMoving _navMoving;
         [SerializeField] private MeshRenderer _meshRenderer;
         [Space]
         [SerializeField] private Wiapon _wiapon;
@@ -20,6 +20,7 @@ namespace DemoShooter
         private UnitManager _unitManager;
 
         public bool ImSelected => _unitManager.CurrentUnit == this;
+        private static bool _movedInFrame;
 
         [Space]
         [SerializeField] private bool _imEnemy;
@@ -34,25 +35,32 @@ namespace DemoShooter
         {
             _unitManager = Singleton<UnitManager>.instance;
             _gameEditor = Singleton<GameEditor>.instance;
-            _moveToPoint.SetTarget(transform.position);
+            _navMoving.SetTarget(transform.position);
 
             ClickManager.FloorClick += OnFloorClick;
             _unitManager.SelectedUnitChanged += OnSelectedUnitChanged;
 
             UnitCreate?.Invoke(this);
         }
+
+        private void LateUpdate()
+        {
+            _movedInFrame = false;
+        }
         private void Update()
         {
             if (_gameEditor.EditMode)
                 return;
-            if (_moveToPoint.IsStopMoving)
+
+            
+            if (_navMoving.IsStopMoving)
             {
                 Unit enemy = _unitManager.GetNearestEnemy(transform.position, _wiapon.Range, _imEnemy);
                 if (_target != null && Vector3.Distance(transform.position, _target.transform.position) <= _wiapon.Range)
                     enemy = _target;
                 if (enemy != null)
                 {
-                    Vector3 lookDirection = enemy.transform.position - transform.position;
+                    Vector3 lookDirection = enemy.transform.position - _wiapon.transform.position;
                     lookDirection.y = 0f;
                     Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
                     transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 10 * Time.deltaTime);
@@ -65,7 +73,9 @@ namespace DemoShooter
         {
             _hp = hp;
             _wiapon.SetValues(range, damage, cooldown, index);
-            _moveToPoint.SetSpeed(speed);
+            _navMoving.SetSpeed(speed);
+
+            _navMoving.Stop();
         }
 
         private void OnSelectedUnitChanged(Unit unit)
@@ -81,13 +91,18 @@ namespace DemoShooter
                 _meshRenderer.material = IsEnemy ? _unitManager.UnitEnemy : _unitManager.UnitDefault;
             }
         }
-        private void OnFloorClick(Vector3 pos)
+        private void OnFloorClick(Vector3 pos, int button)
         {
-            if (ImSelected && !_gameEditor.EditMode)
+            if (ImSelected && button != 1 && !_gameEditor.EditMode && !_movedInFrame)
             {
                 pos = new Vector3(pos.x, transform.position.y, pos.z);
 
-                _moveToPoint.SetTarget(pos);
+                if (_navMoving.SetTarget(pos))
+                {
+                    _unitManager.NextUnit();
+                    _movedInFrame = true;
+                }
+                
             }
         }
 

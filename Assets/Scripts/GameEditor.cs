@@ -2,10 +2,20 @@ using System;
 using System.Globalization;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace DemoShooter
 {
+    internal enum ObjectType
+    {
+        Unit,
+        Spawner,
+        Barrier
+    }
+
+
     [Singleton]
     internal class GameEditor : MonoBehaviour, ISingleton
     {
@@ -15,18 +25,22 @@ namespace DemoShooter
         public const float DefaultCooldown = 0.4f;
         public const float DefaultSpeed = 1.5f;
         public const float DefaultRate = 5;
+        public const float DefaultCameraSpeed = 1;
+        public const float DefaultBarrierPermeability = 50;
+        public const float DefaultBarrierRotation = 0;
 
 
         [SerializeField] private GameObject _editorMenu;
         [SerializeField] private GameObject _cameraTopPoint;
+        [SerializeField] private float _pointSpeed;
+        private bool _movePoint;
         [SerializeField] private float _minValueX;
         [SerializeField] private float _maxValueX;
         [Space]
-        [SerializeField] private Spawner _spawnerPrefab;
         [SerializeField] private GameObject _spawnerButton;
         private bool _enemy = false;
         private int _type = 0;
-        private bool _spawnCreate;
+        private ObjectType _spawnObjectType;
         private int _typeIndex;
         [Space]
         [SerializeField] private InputField _fieldHp;
@@ -41,13 +55,22 @@ namespace DemoShooter
         private float[] _speed = new float[6];
         [SerializeField] private InputField _fieldRate;
         private float _rate;
+        [SerializeField] private InputField _fieldCameraSpeed;
+        private float _cameraSpeed;
+        [SerializeField] private InputField _fieldBarrierPermeability;
+        private float _barrierPermeability;
+        [SerializeField] private InputField _fieldBarriaerRotation;
+        private float _barrierRotation;
         [Space]
         [SerializeField] private GameObject _arrowGroup;
         [SerializeField] private GameObject _arrowType;
         [SerializeField] private GameObject _arrowMode;
         [Space]
+        [SerializeField] private Spawner _spawnerPrefab;
         [SerializeField] private Unit _unitPrefab;
         [SerializeField] private Unit _enemyPrefab;
+        [SerializeField] private Barrier _barrierPrefab;
+        
         private float _arrowX;
 
         private bool _editMode;
@@ -61,37 +84,56 @@ namespace DemoShooter
             _fieldDamage.onEndEdit.AddListener(OnDamageChanged);
             _fieldRange.onEndEdit.AddListener(OnRangeChanged);
             _fieldCooldown.onEndEdit.AddListener(OnCooldownChanged);
-            _fieldSpeed.onEndEdit.AddListener(OnDSpeedChanged);
+            _fieldSpeed.onEndEdit.AddListener(OnSpeedChanged);
+            _fieldRate.onEndEdit.AddListener(OnRateChanged);
+            _fieldCameraSpeed.onEndEdit.AddListener(OnCameraSpeedChanged);
+            _fieldBarrierPermeability.onEndEdit.AddListener(OnPermeabilityChanged);
+            _fieldBarriaerRotation.onEndEdit.AddListener(OnRotationChanged);
 
             _arrowX = _arrowType.transform.localPosition.x;
 
             DownloadValues();
 
+            Singleton<CameraMovenment>.instance.SetSpeed(_cameraSpeed);
+            SwitchEdit();
         }
 
         private void OnHpChanged(string value) { _hp[_typeIndex] = int.Parse(value); UploadValues(hp: true); }
         private void OnDamageChanged(string value) { _damage[_typeIndex] = int.Parse(value); UploadValues(damage: true); }
         private void OnRangeChanged(string value) { _range[_typeIndex] = float.Parse(value, CultureInfo.InvariantCulture); UploadValues(range: true); }
         private void OnCooldownChanged(string value) { _cooldown[_typeIndex] = float.Parse(value, CultureInfo.InvariantCulture); UploadValues(cooldown: true); }
-        private void OnDSpeedChanged(string value) { _speed[_typeIndex] = float.Parse(value, CultureInfo.InvariantCulture); UploadValues(speed: true); }
+        private void OnSpeedChanged(string value) { _speed[_typeIndex] = float.Parse(value, CultureInfo.InvariantCulture); UploadValues(speed: true); }
+        private void OnRateChanged(string value) { _rate = float.Parse(value, CultureInfo.InvariantCulture); UploadValues(rate: true); }
+        private void OnCameraSpeedChanged(string value) { _cameraSpeed = float.Parse(value, CultureInfo.InvariantCulture); UploadValues(cameraSpeed: true); Singleton<CameraMovenment>.instance.SetSpeed(_cameraSpeed); }
+        private void OnPermeabilityChanged(string value) { _barrierPermeability = Mathf.Clamp(float.Parse(value, CultureInfo.InvariantCulture), 0, 100); UploadValues(permeability: true); DownloadValues(); }
+        private void OnRotationChanged(string value) { _barrierRotation = Mathf.Clamp(float.Parse(value, CultureInfo.InvariantCulture), 0, 180); UploadValues(rotation: true); DownloadValues(); }
 
         private void Update()
         {
+            if (_movePoint)
+            {
+                MovePoint();
+            }
             if (Input.GetKeyDown(KeyCode.Tab))
             {
-                _editMode = !_editMode;
-                _editorMenu.SetActive(_editMode);
+                SwitchEdit();
+            }
+        }
 
-                if (_editMode)
-                    Singleton<CameraMovenment>.instance.SetEditMode(_cameraTopPoint, new Vector3(90, -90, 0));
+        private void SwitchEdit()
+        {
+            _editMode = !_editMode;
+            _editorMenu.SetActive(_editMode);
+
+            if (_editMode)
+                Singleton<CameraMovenment>.instance.SetEditMode(_cameraTopPoint, new Vector3(90, -90, 0));
+            else
+            {
+                Unit unit = Singleton<UnitManager>.instance.CurrentUnit;
+                if (unit != null)
+                    Singleton<CameraMovenment>.instance.SetTarget(unit.gameObject);
                 else
-                {
-                    Unit unit = Singleton<UnitManager>.instance.CurrentUnit;
-                    if (unit != null)
-                        Singleton<CameraMovenment>.instance.SetTarget(unit.gameObject);
-                    else
-                        Singleton<UnitManager>.instance.NextUnit();
-                }
+                    Singleton<UnitManager>.instance.NextUnit();
             }
         }
 
@@ -116,9 +158,26 @@ namespace DemoShooter
 
             _rate = PlayerPrefs.GetFloat("SpawnRate", DefaultRate);
             _fieldRate.text = _rate.ToString().Replace(",", ".");
+
+            _cameraSpeed = PlayerPrefs.GetFloat("CameraSpeed", DefaultCameraSpeed);
+            _fieldCameraSpeed.text = _cameraSpeed.ToString().Replace(",", ".");
+
+            _barrierPermeability = PlayerPrefs.GetFloat("BarrierPermeability", DefaultBarrierPermeability);
+            _fieldBarrierPermeability.text = _barrierPermeability.ToString().Replace(",", ".");
+
+            _barrierRotation = PlayerPrefs.GetFloat("BarrierRotation", DefaultBarrierRotation);
+            _fieldBarriaerRotation.text = _barrierRotation.ToString().Replace(",", ".");
         }
 
-        public void UploadValues(bool hp = false, bool damage = false, bool range = false, bool cooldown = false, bool speed = false, bool rate = false)
+        public void UploadValues(bool hp = false,
+                                 bool damage = false,
+                                 bool range = false,
+                                 bool cooldown = false,
+                                 bool speed = false,
+                                 bool rate = false,
+                                 bool cameraSpeed = false,
+                                 bool permeability = false,
+                                 bool rotation = false)
         {
             if (hp)
                 PlayerPrefs.SetInt("Type" + $"{_typeIndex}" + "HP", _hp[_typeIndex]);
@@ -132,6 +191,13 @@ namespace DemoShooter
                 PlayerPrefs.SetFloat("Type" + $"{_typeIndex}" + "Speed", _speed[_typeIndex]);
             if (rate)
                 PlayerPrefs.SetFloat("SpawnRate", _rate);
+            if (cameraSpeed)
+                PlayerPrefs.SetFloat("CameraSpeed", _cameraSpeed);
+            if (permeability)
+                PlayerPrefs.SetFloat("BarrierPermeability", _barrierPermeability);
+            if (rotation)
+                PlayerPrefs.SetFloat("BarrierRotation", _barrierRotation);
+
             PlayerPrefs.Save();
         }
 
@@ -157,7 +223,7 @@ namespace DemoShooter
             _arrowGroup.transform.rotation = Quaternion.Euler(new(0, 0, _enemy ? 180 : 0));
             _typeIndex = _type + (_enemy ? 3 : 0);
             if (!enemy)
-                SetMode(false);
+                SetMode(0);
             DownloadValues();
         }
 
@@ -169,25 +235,44 @@ namespace DemoShooter
             DownloadValues();
         }
 
-        public void SetMode(bool spawn)
+        public void SetMode(int spawn)
         {
-            _spawnCreate = spawn;
-            _arrowMode.transform.rotation = Quaternion.Euler(new(0, 0, _spawnCreate ? 180 : 0));
+            if (spawn > 2)
+            {
+                if (_spawnObjectType == ObjectType.Barrier)
+                    spawn = 0;
+                else
+                    spawn = (int)_spawnObjectType;
+            }
+
+            _spawnObjectType = (ObjectType)spawn;
+            _arrowMode.transform.rotation = Quaternion.Euler(new(0, 0, _spawnObjectType == ObjectType.Spawner ? 180 : 0));
             DownloadValues();
         }
 
-        private void OnFloorClick(Vector3 pos)
+        private void OnFloorClick(Vector3 pos, int button)
         {
-            if (!_editMode)
+            if (!_editMode || button == 1)
                 return;
 
-            if (_spawnCreate)
+            if (_spawnObjectType == ObjectType.Spawner)
             {
                 pos = new Vector3(pos.x, Singleton<UnitManager>.instance.YPos, pos.z);
 
                 Spawner spawner = Instantiate(_spawnerPrefab, transform);
                 spawner.transform.position = pos;
                 spawner.SetValues(_typeIndex, _rate);
+
+                return;
+            }
+            else if (_spawnObjectType == ObjectType.Barrier)
+            {
+                pos = new Vector3(pos.x, Singleton<UnitManager>.instance.YPos, pos.z);
+
+                Barrier barrier = Instantiate(_barrierPrefab, transform);
+                barrier.transform.position = pos;
+                barrier.transform.rotation = Quaternion.Euler(0, _barrierRotation, 0);
+                barrier.SetValues(_barrierPermeability);
 
                 return;
             }
@@ -202,6 +287,7 @@ namespace DemoShooter
                 unit = Instantiate(_enemyPrefab, transform);
 
             unit.transform.position = pos;
+            unit.GetComponent<NavMeshAgent>().enabled = true;
             SetUnitValues(unit);
         }
 
@@ -220,10 +306,25 @@ namespace DemoShooter
             }
             _cameraTopPoint.transform.position = new Vector3(pos.x + x, pos.y, pos.z);
         }
+        private void MovePoint()
+        {
+            MovePoint(_pointSpeed);
+        }
+
+        public void StartMove(bool up)
+        {
+            _pointSpeed = Mathf.Abs(_pointSpeed) * (up ? -1 : 1);
+            _movePoint = true;
+        }
+        public void StopMove() 
+        {
+            _movePoint = false;
+        }
 
         public void Exit()
         {
             Application.Quit();
         }
+
     }
 }

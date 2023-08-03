@@ -54,7 +54,7 @@ namespace DemoShooter
             bullet.SetValues(host.IsEnemy, _damage);
 
             bullet.transform.position = _bulletPoint.transform.position;
-            bullet.MoveToPoint.SetTarget(target.gameObject, _range);
+            bullet.SetTarget(target.gameObject, _range);
         }
 
     }

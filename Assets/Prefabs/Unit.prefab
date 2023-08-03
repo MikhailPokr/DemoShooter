@@ -259,7 +259,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _hp: 0
   _collider: {fileID: 5554884289804372994}
-  _moveToPoint: {fileID: 1967727447198385167}
+  _navMoving: {fileID: 1967727447198385167}
   _meshRenderer: {fileID: 2848476901926396452}
   _wiapon: {fileID: 1868742397918944172}
   _imEnemy: 0
@@ -284,21 +284,21 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8453541373116681901}
-  m_Enabled: 1
+  m_Enabled: 0
   m_AgentTypeID: 0
-  m_Radius: 0.07
+  m_Radius: 0.05
   m_Speed: 1.5
   m_Acceleration: 5
   avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0.1
+  m_AngularSpeed: 360
+  m_StoppingDistance: 0
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
   m_Height: 0.2
   m_BaseOffset: 0.1
   m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 2
+  m_ObstacleAvoidanceType: 4
 --- !u!1 &9149769623539286037
 GameObject:
   m_ObjectHideFlags: 0

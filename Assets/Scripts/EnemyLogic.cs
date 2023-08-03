@@ -7,14 +7,14 @@ namespace DemoShooter
     {
         private UnitManager _unitManager;
         private GameEditor _gameEditor;
-        private MoveToPoint _moveToPoint;
+        private NavMoving _navMoving;
         private Unit _unit;
 
         private void Start()
         {
             _unitManager = Singleton<UnitManager>.instance;
             _gameEditor = Singleton<GameEditor>.instance;
-            _moveToPoint = GetComponent<MoveToPoint>();
+            _navMoving = GetComponent<NavMoving>();
             _unit = GetComponent<Unit>();
         }
         private void Update()
@@ -26,12 +26,16 @@ namespace DemoShooter
             {
                 if (Vector3.Distance(transform.position, playerUnit.transform.position) < _unit.Wiapon.Range)
                 {
-                    _moveToPoint.SetTarget(transform.position);
+                    _navMoving.SetTarget(transform.position);
                 }
                 else
                 {
-                    _moveToPoint.SetTarget(playerUnit.transform.position);
+                    _navMoving.SetTarget(playerUnit.transform.position);
                 }
+            }
+            else
+            {
+                _navMoving.SetTarget(transform.position);
             }
         }
     }
