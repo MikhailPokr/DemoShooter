@@ -1,6 +1,7 @@
+using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
+using static UnityEngine.UI.CanvasScaler;
 
 namespace DemoShooter
 {
@@ -16,6 +17,8 @@ namespace DemoShooter
         [Space]
         [SerializeField] private Vector2 _area;
 
+        private bool _groupAttack;
+
         private void Start()
         {
             _unitManager = Singleton<UnitManager>.instance;
@@ -24,9 +27,40 @@ namespace DemoShooter
 
         private void Update()
         {
-            if (Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1))
+            if (_groupAttack)
             {
-                int button = Input.GetMouseButtonUp(0) ? 0 : 1;
+                if (Input.GetMouseButtonUp(0))
+                {
+                    _groupAttack = false;
+                    return;
+                }
+                Unit unit = null;
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                if (Physics.Raycast(ray, out RaycastHit hit))
+                {
+                    if (hit.collider != Singleton<UnitManager>.instance.Floor)
+                    {
+                        unit = hit.collider.gameObject.GetComponentInParent<Unit>();
+                    }
+                    if (unit != null)
+                    {
+                        if (unit != _unitManager.CurrentUnit && unit.IsEnemy)
+                        {
+                            List<Unit> units = _unitManager.GetNearestUnits(unit.transform.position);
+                            units.RemoveAll(x => x.IsEnemy);
+                            foreach (Unit myUnit in units)
+                            {
+                                myUnit.SetTarget(unit);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
+            {
+                int button = Input.GetMouseButtonDown(0) ? 0 : 1;
 
                 Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
@@ -49,11 +83,12 @@ namespace DemoShooter
                             unit.KillUnit();
                             return;
                         }
-                        if (unit != _unitManager.CurrentUnit && button == 1)
+                        if (unit != _unitManager.CurrentUnit && button == 0)
                         {
                             if (unit.IsEnemy)
                             {
-                                _unitManager.CurrentUnit.SetTarget(unit);
+                                if (!_gameEditor.EditMode)
+                                  _unitManager.CurrentUnit.SetTarget(unit);
                             }
                             else
                             {
@@ -62,7 +97,7 @@ namespace DemoShooter
                             return;
                         }
                     }
-                    else if (_gameEditor.EditMode && button == 1)
+                    else if (_gameEditor.EditMode && button == 0)
                     {
                         Spawner spawner = hit.collider.GetComponent<Spawner>();
                         if (spawner != null)
@@ -71,14 +106,19 @@ namespace DemoShooter
                             return;
                         }
                         Barrier barrier = hit.collider.GetComponent<Barrier>();
-                        if (barrier != null)
+                        if (barrier != null && _gameEditor.SpawnObjectType == ObjectType.Barrier)
                         {
-                            Destroy(barrier.gameObject);
+                            barrier.Click();
                             return;
                         }
                     }
 
-                    FloorClick?.Invoke(hit.point, button);
+                    if (button == 0 && !_gameEditor.EditMode)
+                    {
+                        _groupAttack = true;
+                    }
+                    else
+                        FloorClick?.Invoke(hit.point, button);
                 }
             }
         }

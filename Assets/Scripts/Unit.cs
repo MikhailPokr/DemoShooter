@@ -1,5 +1,6 @@
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DemoShooter
 {
@@ -15,6 +16,7 @@ namespace DemoShooter
         public Wiapon Wiapon => _wiapon;
 
         private Unit _target;
+        public Unit Target => _target;
 
         private GameEditor _gameEditor;
         private UnitManager _unitManager;
@@ -31,10 +33,14 @@ namespace DemoShooter
         public delegate void UnitDestroyHendler(Unit unit);
         public static event UnitDestroyHendler UnitDestroy;
 
-        private void Start()
+        private void Awake()
         {
             _unitManager = Singleton<UnitManager>.instance;
             _gameEditor = Singleton<GameEditor>.instance;
+        }
+
+        private void Start()
+        {
             _navMoving.SetTarget(transform.position);
 
             ClickManager.FloorClick += OnFloorClick;
@@ -69,12 +75,13 @@ namespace DemoShooter
                 }
             }
         }
-        public void SetValues(bool enemy, int index ,int hp, int damage, float range, float cooldown, float speed)
+        public void SetValues(int index ,int hp, int damage, float range, float cooldown, float speed)
         {
             _hp = hp;
             _wiapon.SetValues(range, damage, cooldown, index);
             _navMoving.SetSpeed(speed);
 
+            
             _navMoving.Stop();
         }
 
@@ -93,7 +100,7 @@ namespace DemoShooter
         }
         private void OnFloorClick(Vector3 pos, int button)
         {
-            if (ImSelected && button != 1 && !_gameEditor.EditMode && !_movedInFrame)
+            if (ImSelected && button == 1 && !_gameEditor.EditMode && !_movedInFrame)
             {
                 pos = new Vector3(pos.x, transform.position.y, pos.z);
 
@@ -126,6 +133,13 @@ namespace DemoShooter
             UnitDestroy?.Invoke(this);
             Destroy(gameObject);
         }
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            Gizmos.color = new Color(1,0,0,0.2f);
+            Gizmos.DrawWireSphere(transform.position, _wiapon.Range);
+        }
+#endif
     }
 }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace DemoShooter
@@ -13,6 +14,8 @@ namespace DemoShooter
         private bool _hasTargetObject = false;
         private GameObject _targetObject;
         private float _range;
+
+        private List<Barrier> _ignorableBarriers = new();
 
         public void SetTarget(GameObject target, float range = -1)
         {
@@ -51,12 +54,13 @@ namespace DemoShooter
             {
                 _hasTargetObject = false;
                 Vector3 direction = (_targetPosition - _startPos).normalized;
-                _targetPosition = _targetPosition + direction * _range;
+                _targetPosition += direction * _range;
             }
 
             if (_range != -1 && Vector3.Distance(_startPos, transform.position) >= _range)
             {
                 Destroy(gameObject);
+                return;
             }
 
             Vector3 moveDirection = (_targetPosition - transform.position).normalized;
@@ -64,12 +68,21 @@ namespace DemoShooter
 
             if (Physics.Raycast(transform.position, moveDirection, out RaycastHit hit, distance))
             {
-                Destroy(gameObject);
+                Barrier barrier = hit.collider.GetComponent<Barrier>();
+                if (barrier != null)
+                {
+                    if (barrier.Permeability < Random.value || _ignorableBarriers.Contains(barrier))
+                    {
+                        _ignorableBarriers.Add(barrier);
+                    }
+                    else
+                    {
+                        Destroy(gameObject);
+                        return;
+                    }
+                }
             }
-            else
-            {
-                transform.position += moveDirection * distance;
-            }
+            transform.position += moveDirection * distance;
         }
     }
 }

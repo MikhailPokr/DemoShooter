@@ -1,5 +1,6 @@
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DemoShooter
 {
@@ -38,6 +39,7 @@ namespace DemoShooter
             {
                 _time = 0;
                 Unit unit = Instantiate(_enemyPrafab, transform.parent);
+                unit.GetComponent<NavMeshAgent>().enabled = true;
                 unit.transform.position = transform.position;
                 Singleton<GameEditor>.instance.SetUnitValues(unit, _index);
             }

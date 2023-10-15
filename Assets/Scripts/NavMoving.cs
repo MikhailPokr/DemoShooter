@@ -1,4 +1,3 @@
-using Unity.AI.Navigation;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
@@ -8,7 +7,6 @@ namespace DemoShooter
     internal class NavMoving : MonoBehaviour
     {
         [SerializeField] private float _speed;
-        [SerializeField] private bool _notBypass;
 
         private GameEditor _gameEditor;
 
@@ -20,10 +18,13 @@ namespace DemoShooter
 
         private float _range;
 
+        private EnemyLogic _enemyLogic;
+
         public bool IsStopMoving => _navMeshAgent.path.corners.Length < 2 || _navMeshAgent.isStopped;
 
         private void Awake()
         {
+            _enemyLogic = GetComponent<EnemyLogic>();
             _gameEditor = Singleton<GameEditor>.instance;
             _navMeshAgent = GetComponent<NavMeshAgent>();
             if (_navMeshAgent != null)
@@ -52,7 +53,7 @@ namespace DemoShooter
 
         public void Stop()
         {
-            if (_navMeshAgent != null)
+            if (_navMeshAgent != null && _navMeshAgent.enabled)
             {
                 _navMeshAgent.ResetPath();
             }
@@ -97,6 +98,16 @@ namespace DemoShooter
             }
 
             _navMeshAgent.isStopped = false;
+
+/*            if (_enemyLogic != null) 
+            {
+                LogicPoint logicPoint = _enemyLogic.GetBorderPoint(_targetPosition);
+                if (logicPoint != null)
+                {
+                    _targetPosition = logicPoint.transform.position;
+                }
+            }*/
+
             _navMeshAgent.SetDestination(_targetPosition);
         }
 #if UNITY_EDITOR

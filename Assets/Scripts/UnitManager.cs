@@ -124,6 +124,20 @@ namespace DemoShooter
             }
             return nearest;
         }
+
+        public List<Unit> GetNearestUnits(Vector3 pos)
+        {
+            List<Unit> units = new List<Unit>();
+            foreach (var otherUnit in _units)
+            {
+                float distance = Vector3.Distance(pos, otherUnit.transform.position);
+                if (distance > otherUnit.Wiapon.Range)
+                    continue;
+                units.Add(otherUnit);
+            }
+            return units;
+        }
+
         public Vector3 GetObstacles(Vector3 pos)
         {
             Vector3 minVector = Vector3.zero;
